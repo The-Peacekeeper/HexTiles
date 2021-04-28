@@ -2,6 +2,7 @@ class Grid {
   HashMap<String, Tile> tiles = new HashMap();
   HashMap<String, Edge> edges = new HashMap();
   HashMap<String, Corner> corners = new HashMap();
+  HashMap<String, Node> allNodes = new HashMap();
   Hex[] axialDirections = new Hex[6];
   int ringCount;
   float scale = 3;
@@ -39,7 +40,7 @@ class Grid {
     tileList.add(Type.DESERT);
 
     while (tileList.size() < getTileCount(ringCount)) {
-      tileList.add(tileList.get((int)random(0, 18)));
+      tileList.add(tileList.get((int)random(0, 19)));
     }
   }
 
@@ -105,13 +106,21 @@ class Grid {
   void generateCornersFor(Tile t) {
     for (int i = 0; i < 6; i++) {
       float theta = i*PI/3;
-      float q = round(t.pos.q+(2*sin(theta+PI/6)));
+      float q = round(t.pos.q+(2*sin(theta-PI/6)));
       float r = round(t.pos.r+(2*cos(theta)));
       Hex temp = new Hex(q, r);
 
       Corner c = new Corner(temp);
-      corners.put(temp.toString(), c);
-      t.corners[i] = c;
+      Corner cTemp = corners.putIfAbsent(temp.toString(), c);
+      allNodes.putIfAbsent(temp.toString(), c);
+
+      if (cTemp == null) {
+        c.tiles.add(t);
+        t.corners[i] = c;
+      } else {
+        cTemp.tiles.add(t);
+        t.corners[i] = cTemp;
+      }
     }
   }
 
@@ -122,21 +131,24 @@ class Grid {
       Hex temp = Hex.midpoint(c1.pos, c2.pos);
 
       Edge e = new Edge(temp, c1, c2);
-      edges.put(temp.toString(), e);
-      t.edges[i] = e;
+      Edge eTemp = edges.putIfAbsent(temp.toString(), e);
+      allNodes.putIfAbsent(temp.toString(), e);
+
+      if (eTemp == null) {
+        e.tiles.add(t);
+        t.edges[i] = e;
+      } else {
+        eTemp.tiles.add(t);
+        t.edges[i] = e;
+      }
     }
   }
 
   Tile generateTile(Hex pos) {
-    //pos = (Hex)getEqualKey(tiles, pos);
-    //Tile tile = tiles.get(pos);
-
-    //if (tile == null) {
     Tile tile = new Tile(pos);
     tile.setNeighborPos(findNeighborPos(pos));
     tiles.put(pos.toString(), tile);
-    //}
-
+    allNodes.putIfAbsent(pos.toString(), tile);
     return tile;
   }
 

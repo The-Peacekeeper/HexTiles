@@ -16,11 +16,9 @@ static class Hex {
   }
 
   static Hex midpoint(Hex h1, Hex h2) {
-    PVector v1 = new PVector(h1.q, h1.r);
-    PVector v2 = new PVector(h2.q, h2.r);
-
-    v1.lerp(v2, 0.5);
-    return new Hex(v1.x, v2.x);
+    float q = (h1.q+h2.q) / 2;
+    float r = (h1.r+h2.r) / 2;
+    return new Hex(q, r);
   }
 
   @Override
@@ -33,13 +31,12 @@ static class Hex {
 
   @Override
     String toString() {
-    String temp = round(q)+","+round(r);
+    String temp = q+","+r;
     return temp;
   }
 
   float distanceTo(Hex other) {
-    PVector  v1 = new PVector(q, r);
-    PVector  v2 = new PVector(other.q, other.r); 
-    return v1.dist(v2);
+    float dist = sqrt(sq(q-other.q) + sq(r-other.r));
+    return dist;
   }
 }

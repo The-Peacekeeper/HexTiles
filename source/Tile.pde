@@ -1,14 +1,12 @@
-class Tile {
+class Tile extends Node {
   private List<Hex> neighborHex;
   private List<Tile> neighbors;
   private Edge[] edges = new Edge[6];
   private Corner[] corners = new Corner[6];
-  private Hex pos = new Hex(0, 0);
   private Type type;
-  boolean highlighted = false;
 
   Tile(Hex pos) {
-    this.pos = pos;
+    super(pos);
   }
 
   void assignType() {
@@ -64,13 +62,5 @@ class Tile {
     }
 
     return shared;
-  }
-
-  @Override
-    boolean equals(Object other) {
-    if (other == this) return true;
-    if (!(other instanceof Tile)) return false;
-    Tile t = (Tile) other;
-    return pos.equals(t.pos);
   }
 }

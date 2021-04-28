@@ -16,20 +16,21 @@ import java.io.IOException;
 
 public class ProcessingHexTiles extends PApplet {
 
- //<>//
+ //<>// //<>// //<>//
 
 enum Type {
   WHEAT, // 4/18
     SHEEP, // 4/18
-    WOOD, // 3/18
+    WOOD, // 4/18
     BRICK, // 3/18
     ORE, // 3/18
     DESERT // always 1
 }
 
 int boardSize = 3;
-int size = 4*height/boardSize;
+int tileSize = 4*height/boardSize;
 Grid grid = new Grid(boardSize);
+String typeToSelect = null;
 
 public void setup() {
   
@@ -38,37 +39,62 @@ public void setup() {
 
 public void draw() {
   background(200);
-  drawTiles(size);
-  highlightMouse(size);
+  drawTiles();
+  highlightMouse();
 }
 
-public void drawTiles(int size) {
+public void drawTiles() {
   pushMatrix();
   translate(width/2, height/2);
 
   for (Tile t : grid.tiles.values()) {
-    drawTile(t, size);
+    drawTile(t);
   }
+
+  /*for (Node n : grid.allNodes.values()) {
+    fill(0);
+    textAlign(CENTER, CENTER);
+    PVector temp = hexToPixel(n.pos);
+    float x = temp.x;
+    float y = temp.y;
+    text(n.pos.toString(), x, y);
+  } */
 
   popMatrix();
 }
 
-public void highlightMouse(int size) {
+public void highlightMouse() {
   fill(150);
   circle(mouseX, mouseY, 10);
-  Hex mousePos = pixelToHex(mouseX-width/2, mouseY-height/2, size);
+  Hex mousePos = pixelToHex(mouseX-width/2, mouseY-height/2);  
 
-  for (Tile t : grid.tiles.values()) {
-    if (t.pos.distanceTo(mousePos) < grid.scale/2) {
-      t.highlighted = true;
-    } else {
-      t.highlighted = false;
-    }
+  if (typeToSelect != null) {
+    Node selectedNode = getNearestNode(mousePos, typeToSelect);
+    PVector pos = hexToPixel(selectedNode.pos);
+    circle(pos.x+width/2, pos.y+height/2, 10);
   }
 }
 
-public void drawTile(Tile t, float size) {
-  PVector temp = hexToPixel(t.pos, size);
+public Node getNearestNode(Hex pos, String type) {
+  float lowestDistance = 10;
+  Node closestNode = null;
+  type = "class ProcessingHexTiles$" + type;
+
+  for (Node n : grid.allNodes.values()) {
+    float temp = n.pos.distanceTo(pos);
+    String name = n.getClass().toString();
+
+    if (temp < lowestDistance && name.equals(type)) {
+      lowestDistance = temp;
+      closestNode = n;
+    }
+  }
+
+  return closestNode;
+}
+
+public void drawTile(Tile t) {
+  PVector temp = hexToPixel(t.pos);
   float x = temp.x;
   float y = temp.y;
 
@@ -86,12 +112,7 @@ public void drawTile(Tile t, float size) {
     fill(0xffFFE100);
   }
 
-  drawHex(x, y, size);
-
-  if (t.highlighted) {
-    fill(150, 100);
-    drawHex(x, y, size*0.8f);
-  }
+  drawHex(x, y, tileSize);
 }
 
 public void drawHex(float x, float y, float size) {
@@ -108,31 +129,52 @@ public void drawHex(float x, float y, float size) {
   endShape(CLOSE);
 }
 
-public PVector hexToPixel(Hex hex, float size) {
-  float x = size/grid.scale * (sqrt(3) * hex.q  +  sqrt(3)/2 * hex.r);
-  float y = size/grid.scale * (3/2f * hex.r);
+public PVector hexToPixel(Hex hex) {
+  float x = tileSize/grid.scale * (sqrt(3) * hex.q  +  sqrt(3)/2 * hex.r);
+  float y = tileSize/grid.scale * (3/2f * hex.r);
   return new PVector(x, y);
 }
 
-public Hex pixelToHex(float x, float y, int size) {
-  int q = round(grid.scale*(x/sqrt(3) - y/3f)/size);  //grid.scale
-  int r = round(2*grid.scale/3f * y/size);
+public Hex pixelToHex(float x, float y) {
+  float q = (grid.scale*(x/sqrt(3) - y/3f)/tileSize);  //grid.scale
+  float r = (2*grid.scale/3f * y/tileSize);
   return new Hex(q, r);
 }
-class Corner {
-  HashMap<String, Tile> tiles;
-  Hex pos;
-    
-  Corner (Hex pos) {
-    this.pos = pos;
+
+public void keyPressed() {
+  switch (key) {
+  case 'S':
+  case 's':
+    typeToSelect = "Corner";
+    break;
+  case 'R':
+  case 'r':
+    typeToSelect = "Edge";
+    break;
+  }
+}
+class Building {
+  Node node;
+  List<Type> requirements = new ArrayList();
+  
+  Building(Hex pos) {
+    node = grid.allNodes.get(pos.toString());
   }
   
-  public @Override
-  boolean equals(Object other) {
-    if (other == this) return true;
-    if (!(other instanceof Corner)) return false;
-    Corner c = (Corner) other;
-    return pos.equals(c.pos);
+  Building(Node node) {
+    this.node = node;
+  }
+}
+class City extends Building {
+  City(Settlement settlement) {
+    super(settlement.node);
+  }
+}
+class Corner extends Node {
+  List<Tile> tiles = new ArrayList();
+    
+  Corner (Hex pos) {
+    super(pos);
   }
 }
 class Cube {
@@ -152,29 +194,21 @@ class Cube {
     return x == c.x && y == c.y && z == c.z;
   }
 }
-class Edge {
-  HashMap<String, Tile> tiles;
+class Edge extends Node {
+  List<Tile> tiles = new ArrayList();
   Corner[] corners = new Corner[2];
-  Hex pos;
   
   Edge (Hex pos, Corner corner1, Corner corner2) {
-    this.pos = pos;
+    super(pos);
     corners[0] = corner1;
     corners[1] = corner2;
-  }
-  
-  public @Override
-  boolean equals(Object other) {
-    if (other == this) return true;
-    if (!(other instanceof Corner)) return false;
-    Corner c = (Corner) other;
-    return pos.equals(c.pos);
   }
 }
 class Grid {
   HashMap<String, Tile> tiles = new HashMap();
   HashMap<String, Edge> edges = new HashMap();
   HashMap<String, Corner> corners = new HashMap();
+  HashMap<String, Node> allNodes = new HashMap();
   Hex[] axialDirections = new Hex[6];
   int ringCount;
   float scale = 3;
@@ -212,7 +246,7 @@ class Grid {
     tileList.add(Type.DESERT);
 
     while (tileList.size() < getTileCount(ringCount)) {
-      tileList.add(tileList.get((int)random(0, 18)));
+      tileList.add(tileList.get((int)random(0, 19)));
     }
   }
 
@@ -278,13 +312,21 @@ class Grid {
   public void generateCornersFor(Tile t) {
     for (int i = 0; i < 6; i++) {
       float theta = i*PI/3;
-      float q = round(t.pos.q+(2*sin(theta+PI/6)));
+      float q = round(t.pos.q+(2*sin(theta-PI/6)));
       float r = round(t.pos.r+(2*cos(theta)));
       Hex temp = new Hex(q, r);
 
       Corner c = new Corner(temp);
-      corners.put(temp.toString(), c);
-      t.corners[i] = c;
+      Corner cTemp = corners.putIfAbsent(temp.toString(), c);
+      allNodes.putIfAbsent(temp.toString(), c);
+
+      if (cTemp == null) {
+        c.tiles.add(t);
+        t.corners[i] = c;
+      } else {
+        cTemp.tiles.add(t);
+        t.corners[i] = cTemp;
+      }
     }
   }
 
@@ -295,21 +337,24 @@ class Grid {
       Hex temp = Hex.midpoint(c1.pos, c2.pos);
 
       Edge e = new Edge(temp, c1, c2);
-      edges.put(temp.toString(), e);
-      t.edges[i] = e;
+      Edge eTemp = edges.putIfAbsent(temp.toString(), e);
+      allNodes.putIfAbsent(temp.toString(), e);
+
+      if (eTemp == null) {
+        e.tiles.add(t);
+        t.edges[i] = e;
+      } else {
+        eTemp.tiles.add(t);
+        t.edges[i] = e;
+      }
     }
   }
 
   public Tile generateTile(Hex pos) {
-    //pos = (Hex)getEqualKey(tiles, pos);
-    //Tile tile = tiles.get(pos);
-
-    //if (tile == null) {
     Tile tile = new Tile(pos);
     tile.setNeighborPos(findNeighborPos(pos));
     tiles.put(pos.toString(), tile);
-    //}
-
+    allNodes.putIfAbsent(pos.toString(), tile);
     return tile;
   }
 
@@ -374,11 +419,9 @@ static class Hex {
   }
 
   public static Hex midpoint(Hex h1, Hex h2) {
-    PVector v1 = new PVector(h1.q, h1.r);
-    PVector v2 = new PVector(h2.q, h2.r);
-
-    v1.lerp(v2, 0.5f);
-    return new Hex(v1.x, v2.x);
+    float q = (h1.q+h2.q) / 2;
+    float r = (h1.r+h2.r) / 2;
+    return new Hex(q, r);
   }
 
   public @Override
@@ -391,27 +434,50 @@ static class Hex {
 
   public @Override
     String toString() {
-    String temp = round(q)+","+round(r);
+    String temp = q+","+r;
     return temp;
   }
 
   public float distanceTo(Hex other) {
-    PVector  v1 = new PVector(q, r);
-    PVector  v2 = new PVector(other.q, other.r); 
-    return v1.dist(v2);
+    float dist = sqrt(sq(q-other.q) + sq(r-other.r));
+    return dist;
   }
 }
-class Tile {
+abstract class Node {
+  Hex pos;
+  boolean highlighted = false;
+  
+  Node(Hex pos) {
+    this.pos = pos;
+  }
+  
+  public @Override
+  boolean equals(Object other) {
+    if (other == this) return true;
+    if (other.getClass() != this.getClass()) return false;
+    Node o = (Node) other;
+    return pos.equals(o.pos);
+  }
+}
+class Road extends Building {
+  Road(Edge edge) {
+    super(edge);
+  }
+}
+class Settlement extends Building {
+  Settlement(Corner corner) {
+    super(corner);
+  }
+}
+class Tile extends Node {
   private List<Hex> neighborHex;
   private List<Tile> neighbors;
   private Edge[] edges = new Edge[6];
   private Corner[] corners = new Corner[6];
-  private Hex pos = new Hex(0, 0);
   private Type type;
-  boolean highlighted = false;
 
   Tile(Hex pos) {
-    this.pos = pos;
+    super(pos);
   }
 
   public void assignType() {
@@ -467,14 +533,6 @@ class Tile {
     }
 
     return shared;
-  }
-
-  public @Override
-    boolean equals(Object other) {
-    if (other == this) return true;
-    if (!(other instanceof Tile)) return false;
-    Tile t = (Tile) other;
-    return pos.equals(t.pos);
   }
 }
   public void settings() {  fullScreen(); }
